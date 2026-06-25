@@ -1,11 +1,5 @@
-# ---- Dataset & raw images (not tracked; regenerable from source) ----
+# ---- Image data (not tracked) ----
 dataset/
-NCLB/
-NCLB_cropped/
-NCLB_cropped_2/
-Healthy Maize-20260625T124522Z-3-001/
-Healthy Maize_cropped/
-Healthy Maize_cropped_2/
 *.zip
 
 # ---- Model artifacts / caches ----
