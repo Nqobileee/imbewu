@@ -1,0 +1,49 @@
+{
+  "n_images": 1821,
+  "class_counts": {
+    "False": 994,
+    "True": 827
+  },
+  "nclb_prevalence": 0.4541460735859418,
+  "majority_baseline_acc": 0.5458539264140583,
+  "split_sizes": {
+    "train": 1299,
+    "val": 273,
+    "test": 249
+  },
+  "classical_val_auc": {
+    "RBF-SVM": 0.9873,
+    "HistGB": 0.9677,
+    "LogReg": 0.9615,
+    "LinearSVM": 0.9599,
+    "RandomForest": 0.9422
+  },
+  "classical_best": {
+    "model": "RBF-SVM",
+    "test_auc": 0.9976,
+    "test_ap": 0.997
+  },
+  "cnn_best_val_auc": 0.9983,
+  "cnn_epochs_ran": 12,
+  "cnn_test": {
+    "accuracy": 0.9598,
+    "balanced_accuracy": 0.9587,
+    "macro_f1": 0.9597,
+    "roc_auc": 0.989,
+    "pr_auc": 0.9867
+  },
+  "per_dataset": {
+    "NCLB (original)": {
+      "n": 119,
+      "accuracy": 0.9328
+    },
+    "Other diseases": {
+      "n": 130,
+      "accuracy": 0.9846
+    }
+  },
+  "test_errors": {
+    "false_pos": 2,
+    "false_neg": 8
+  }
+}

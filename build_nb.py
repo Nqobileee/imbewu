@@ -337,32 +337,39 @@ def evaluate(model, loader):
     return np.concatenate(Y), np.concatenate(P)
 
 EPOCHS=14; PATIENCE=4
+BUNDLE="outputs/models/cnn_bundle.pt"
 model = make_model()
-opt = torch.optim.AdamW([p for p in model.parameters() if p.requires_grad], lr=8e-4, weight_decay=1e-4)
-sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=EPOCHS)
-lossfn = nn.CrossEntropyLoss(weight=cw)
-
-hist={"epoch":[],"train_loss":[],"val_auc":[],"val_acc":[]}
-best_auc=-1; best_state=None; bad=0; t0=time.time()
-for ep in range(1,EPOCHS+1):
-    model.train(); running=0.0
-    for xb,yb in dl_tr:
-        xb,yb=xb.to(DEVICE),yb.to(DEVICE)
-        opt.zero_grad(); out=model(xb); loss=lossfn(out,yb)
-        loss.backward(); opt.step(); running+=loss.item()*len(xb)
-    sched.step()
-    yv,pv = evaluate(model, dl_va)
-    vauc=roc_auc_score(yv,pv); vacc=((pv>0.5).astype(int)==yv).mean()
-    tl=running/len(tr)
-    for k,v in zip(hist, [ep,tl,vauc,vacc]): hist[k].append(v)
-    print(f"epoch {ep:2d}  train_loss={tl:.4f}  val_auc={vauc:.3f}  val_acc={vacc:.3f}")
-    if vauc>best_auc: best_auc=vauc; best_state={k:v.cpu().clone() for k,v in model.state_dict().items()}; bad=0
-    else:
-        bad+=1
-        if bad>=PATIENCE: print("early stop"); break
-model.load_state_dict(best_state)
-torch.save(best_state, "outputs/models/mobilenetv3_nclb.pt")
-print(f"training done in {time.time()-t0:.0f}s | best val AUC={best_auc:.3f}")
+if os.path.exists(BUNDLE):
+    ck=torch.load(BUNDLE, map_location=DEVICE, weights_only=False)
+    model.load_state_dict(ck["state"]); hist=ck["hist"]
+    print("loaded cached CNN bundle -> skipping training")
+else:
+    opt = torch.optim.AdamW([p for p in model.parameters() if p.requires_grad], lr=8e-4, weight_decay=1e-4)
+    sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=EPOCHS)
+    lossfn = nn.CrossEntropyLoss(weight=cw)
+    hist={"epoch":[],"train_loss":[],"val_auc":[],"val_acc":[]}
+    best_auc=-1; best_state=None; bad=0; t0=time.time()
+    for ep in range(1,EPOCHS+1):
+        model.train(); running=0.0
+        for xb,yb in dl_tr:
+            xb,yb=xb.to(DEVICE),yb.to(DEVICE)
+            opt.zero_grad(); out=model(xb); loss=lossfn(out,yb)
+            loss.backward(); opt.step(); running+=loss.item()*len(xb)
+        sched.step()
+        yv,pv = evaluate(model, dl_va)
+        vauc=roc_auc_score(yv,pv); vacc=((pv>0.5).astype(int)==yv).mean()
+        tl=running/len(tr)
+        for k,v in zip(hist, [ep,tl,vauc,vacc]): hist[k].append(v)
+        print(f"epoch {ep:2d}  train_loss={tl:.4f}  val_auc={vauc:.3f}  val_acc={vacc:.3f}")
+        if vauc>best_auc: best_auc=vauc; best_state={k:v.cpu().clone() for k,v in model.state_dict().items()}; bad=0
+        else:
+            bad+=1
+            if bad>=PATIENCE: print("early stop"); break
+    model.load_state_dict(best_state)
+    torch.save({"state":best_state,"hist":hist}, BUNDLE)
+    print(f"training done in {time.time()-t0:.0f}s")
+best_auc=max(hist["val_auc"])
+print("best val AUC =", round(best_auc,3))
 METRICS["cnn_best_val_auc"]=round(float(best_auc),4); METRICS["cnn_epochs_ran"]=len(hist['epoch'])""")
 
 md("""### 6.1 Training curves
@@ -378,21 +385,21 @@ savefig("07_training_curves")""")
 # ---------- 7. Test evaluation ----------
 md("""## 7. Final evaluation on the held-out test set
 
-The test set was never seen in training, validation, model selection, or threshold choice. We report **ROC-AUC, PR-AUC, accuracy, precision/recall/F1**, the **confusion matrix**, and **ROC + PR curves**.""")
-code("""from sklearn.metrics import (confusion_matrix, classification_report,
-        roc_curve, precision_recall_curve, ConfusionMatrixDisplay, f1_score, accuracy_score)
+The model is judged as a single **categorisation** task — *did it put each leaf in the right class?* — across both classes together, rather than singling out the NCLB-detection rate. The test set was never seen in training, validation, model selection, or threshold choice. We report **overall accuracy, balanced accuracy, macro-F1, ROC-AUC and PR-AUC**, plus the **confusion matrix** and **ROC + PR curves**.""")
+code("""from sklearn.metrics import (confusion_matrix, roc_curve, precision_recall_curve,
+        ConfusionMatrixDisplay, f1_score, accuracy_score, balanced_accuracy_score)
 
 yt, pt = evaluate(model, dl_te)
 pred = (pt>0.5).astype(int)
 auc=roc_auc_score(yt,pt); ap=average_precision_score(yt,pt)
-acc=accuracy_score(yt,pred); f1=f1_score(yt,pred)
-print(f"TEST  acc={acc:.3f}  f1={f1:.3f}  ROC-AUC={auc:.3f}  PR-AUC={ap:.3f}\\n")
-print(classification_report(yt,pred,target_names=["not NCLB","NCLB"],digits=3))
-rep=classification_report(yt,pred,target_names=["not_nclb","nclb"],output_dict=True)
-METRICS["cnn_test"]={"accuracy":round(acc,4),"f1":round(f1,4),"roc_auc":round(float(auc),4),
-                     "pr_auc":round(float(ap),4),
-                     "precision_nclb":round(rep["nclb"]["precision"],4),
-                     "recall_nclb":round(rep["nclb"]["recall"],4)}""")
+acc=accuracy_score(yt,pred); bacc=balanced_accuracy_score(yt,pred); mf1=f1_score(yt,pred,average="macro")
+print(f"TEST (overall categorisation)")
+print(f"  accuracy      = {acc:.3f}  ({int((pred==yt).sum())}/{len(yt)})")
+print(f"  balanced acc  = {bacc:.3f}")
+print(f"  macro F1      = {mf1:.3f}")
+print(f"  ROC-AUC       = {auc:.3f}   PR-AUC = {ap:.3f}")
+METRICS["cnn_test"]={"accuracy":round(acc,4),"balanced_accuracy":round(bacc,4),
+                     "macro_f1":round(mf1,4),"roc_auc":round(float(auc),4),"pr_auc":round(float(ap),4)}""")
 code("""fig,ax=plt.subplots(1,3,figsize=(16,4.6))
 ConfusionMatrixDisplay(confusion_matrix(yt,pred),display_labels=["not NCLB","NCLB"]).plot(ax=ax[0],cmap="Blues",colorbar=False)
 ax[0].set_title(f"Confusion matrix (acc={acc:.3f})")
@@ -402,6 +409,32 @@ prec,rec,_=precision_recall_curve(yt,pt); ax[2].plot(rec,prec,lw=2,label=f"AP={a
 ax[2].axhline(yt.mean(),ls='--',c="grey",label="prevalence"); ax[2].set_xlabel("Recall"); ax[2].set_ylabel("Precision")
 ax[2].set_title("Precision-Recall"); ax[2].legend()
 savefig("08_test_metrics")""")
+
+md("""### 7.1 Per-source-dataset accuracy
+
+A diagnostic-only view: the same overall predictions, broken down by which source collection each test image came from (read from `dataset_sources.csv` when available). This is **not** a per-class metric — it simply shows whether any one collection is harder than the others. The two "other diseases" batches are merged because some images are pixel-identical across them.""")
+code("""import os as _os
+if _os.path.exists("dataset_sources.csv"):
+    srcdf = pd.read_csv("dataset_sources.csv")
+    srcdf["dataset"] = srcdf["dataset"].replace({"Other diseases (set 1)":"Other diseases",
+                                                  "Other diseases (set 2)":"Other diseases"})
+    tdf = df.iloc[te][["filename"]].copy().reset_index(drop=True)
+    tdf["correct"] = (pred == yt).astype(int)
+    tdf = tdf.merge(srcdf, on="filename", how="left")
+    pds = (tdf.groupby("dataset")["correct"].agg(["size","mean"])
+              .rename(columns={"size":"n","mean":"accuracy"}).sort_values("accuracy"))
+    print(pds.round(4).to_string())
+    plt.figure(figsize=(8,3.6))
+    sns.barplot(x=pds["accuracy"], y=pds.index, palette="crest")
+    plt.xlim(0.8,1.005); plt.xlabel("Test accuracy"); plt.ylabel("")
+    plt.title("Per-source-dataset test accuracy")
+    for i,(v,nn) in enumerate(zip(pds["accuracy"], pds["n"])):
+        plt.text(min(v+0.003,1.0), i, f"{v:.3f}  (n={int(nn)})", va="center", fontsize=8)
+    savefig("11_per_dataset")
+    METRICS["per_dataset"] = {k:{"n":int(r["n"]),"accuracy":round(float(r["accuracy"]),4)}
+                              for k,r in pds.iterrows()}
+else:
+    print("dataset_sources.csv not present - skipping per-dataset breakdown")""")
 
 # ---------- 8. Grad-CAM ----------
 md("""## 8. Interpretability — Grad-CAM
@@ -419,7 +452,7 @@ def gradcam(idx):
     out=model(x); out[0,1].backward()
     a=acts["v"][0]; gg=grads["v"][0].mean((1,2))
     cam=F.relu((a*gg[:,None,None]).sum(0)).cpu().numpy()
-    cam=(cam-cam.min())/(cam.ptp()+1e-8)
+    cam=(cam-cam.min())/(np.ptp(cam)+1e-8)
     cam=np.asarray(Image.fromarray((cam*255).astype(np.uint8)).resize((224,224)))/255.0
     return IMG[idx], cam, torch.softmax(out,1)[0,1].item()
 
