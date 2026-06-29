@@ -48,13 +48,12 @@ ab(("Crop losses to pest and disease outbreaks threaten food security across rur
  "photograph an affected leaf and obtain a diagnosis with no network access. The diagnostic engine "
  "is built by transfer learning on a lightweight MobileNetV3-Small backbone pretrained on ImageNet "
  "and is evaluated on a dataset of 1,821 field-collected "
- "maize-leaf images in which the non-NCLB class consists of other maize diseases rather than "
- "healthy foliage, forcing the model to distinguish NCLB's characteristic tan, cigar-shaped lesions "
- "from other disease symptoms. Two routes are compared on an identical, leakage-free, group-aware "
+ "maize-leaf images, framed as a binary NCLB versus non-NCLB classification task that requires the "
+ "model to recognise NCLB's characteristic tan, cigar-shaped lesions. Two routes are compared on an identical, leakage-free, group-aware "
  "test partition: classical classifiers trained on frozen 576-dimensional embeddings, and an "
  "end-to-end fine-tuned network with data augmentation and class-weighted loss. The fine-tuned "
- "model attains test accuracy 96.0%, balanced accuracy 0.959, macro-F1 0.960 and ROC-AUC 0.989, "
- "while a support-vector classifier on frozen embeddings reaches test ROC-AUC 0.998. Grad-CAM "
+ "model attains test accuracy 96.0%, balanced accuracy 0.959 and macro-F1 0.960, "
+ "while a support-vector classifier on frozen embeddings achieves near-perfect class separation. Grad-CAM "
  "attributions confirm that predictions are driven by lesion regions. "
  "Because the quantised model is only a few megabytes and runs on a CPU, the system is deployable "
  "on low-cost phones entirely offline, with treatment guidance delivered in English, Shona and "
@@ -67,9 +66,9 @@ kw(("crop disease detection, Northern Corn Leaf Blight, transfer learning, Mobil
 # ---------------- 1 Background
 h1("1 Background")
 p("Zimbabwe was once regarded as a regional breadbasket, but that standing has eroded markedly, and "
-  "with it the country's food security. Agriculture remains the backbone of the economy, employing "
-  "roughly 60-70% of the workforce and supporting about 70% of the population, predominantly through "
-  "smallholder maize (FAO, 2021a; Milling MEA, 2024). Yet repeated shocks have turned a former "
+  "with it the country's food security (Milling MEA, 2024). Agriculture remains the backbone of the "
+  "economy, employing roughly 60-70% of the workforce and supporting about 70% of the population, "
+  "predominantly through smallholder maize (FAO, 2021a). Yet repeated shocks have turned a former "
   "surplus producer into a recurrent importer: the 2023/24 El Nino drought cut national maize output "
   "to roughly 1.5 million tonnes, leaving a deficit of nearly 700,000 tonnes (USDA FAS, 2024) and "
   "prompting a national state of disaster, with around 6 million people projected to be food "
@@ -116,17 +115,13 @@ p("Digital tools could in principle close this gap, but most existing solutions 
   "(CNNs) and transfer learning make on-device image classification feasible: a compact model "
   "pretrained on a large corpus can be specialised to a narrow agricultural task with comparatively "
   "little labelled data (Zhuang et al., 2021).")
-p("This study treats crop disease diagnosis as an image-classification problem and demonstrates an "
-  "offline-first design on the binary task of distinguishing NCLB from other maize diseases. The "
-  "choice of negatives is deliberate. A model trained to separate diseased from healthy leaves can "
-  "succeed by detecting any departure from green, healthy tissue; such a model is of little clinical "
-  "value because the difficult decisions in the field are between diseases that look superficially "
-  "similar. By composing the non-NCLB class entirely from other maize diseases, the task forces the "
-  "network to learn the specific morphology of blight lesions rather than a generic healthy-versus-"
-  "diseased cue.")
+p("This study treats NCLB detection as a binary image-classification problem, NCLB versus "
+  "non-NCLB maize-leaf images, and demonstrates an offline-first design. The objective is for the "
+  "network to learn the specific morphology of NCLB, the long, tan, cigar-shaped necrotic lesions, "
+  "directly from a leaf photograph captured under ordinary field conditions.")
 p("The contribution of this paper is fourfold and aligns with the JRISS prototype-demonstration "
-  "category. First, it curates a field-collected maize-leaf dataset in which the negative class "
-  "comprises other diseases, providing a realistic and demanding benchmark. Second, it adopts a "
+  "category. First, it curates a field-collected maize-leaf dataset for binary NCLB detection, "
+  "providing a realistic, field-collected benchmark. Second, it adopts a "
   "leakage-free, group-aware evaluation in which all images originating from the same physical leaf "
   "are confined to a single data partition, so reported scores reflect generalisation to unseen "
   "plants rather than memorisation. Third, it compares two transfer-learning routes, frozen-embedding "
@@ -135,11 +130,11 @@ p("The contribution of this paper is fourfold and aligns with the JRISS prototyp
   "low-cost smartphones, in direct response to the policy direction of Zimbabwe's National AI "
   "Strategy (2026-2030).")
 fig("outputs/figures/01_composition.png",
-    "Figure 1. Dataset composition: class balance (NCLB versus other maize diseases) and the fixed "
+    "Figure 1. Dataset composition: class balance (NCLB versus non-NCLB) and the fixed "
     "train/validation/test partition. Source: study exploratory analysis, June 2026.")
 fig("outputs/figures/samples_paper.png",
-    "Figure 2. Representative dataset samples: NCLB lesions (top row) versus other maize diseases "
-    "(bottom row), each centre-cropped and resized to 224x224 pixels. Source: study dataset.")
+    "Figure 2. Representative dataset samples: NCLB (top row) versus non-NCLB (bottom row), each "
+    "centre-cropped and resized to 224x224 pixels. Source: study dataset.")
 
 # ---------------- 2 Literature review
 h1("3 Literature review")
@@ -208,14 +203,14 @@ h1("4 Methodology and instruments")
 p("A prototype-demonstration approach was adopted using field-collected maize-leaf photographs "
   "representative of conditions a deployed application would encounter. The working dataset contains "
   "1,821 images, each centre-cropped to a square and resized to 224x224 pixels. The positive class "
-  "is NCLB; the negative class consists of other maize diseases. Every image is tagged with the "
+  "is NCLB; the negative class is non-NCLB maize leaves. Every image is tagged with the "
   "identifier of the source leaf it derives from, and this identifier is used as the grouping key "
   "for partitioning. Data-quality checks confirmed that every labelled file is present and that no "
   "source leaf spans more than one partition.")
 tbl("Table 2. Dataset profile and partition.",
     ["Attribute", "Value", "Interpretation"],
     [["Images", "1,821", "Field-collected maize leaves (224x224x3)"],
-     ["Class balance", "NCLB 827 (45.4%) | Other diseases 994 (54.6%)", "Near-balanced binary task"],
+     ["Class balance", "NCLB 827 (45.4%) | non-NCLB 994 (54.6%)", "Near-balanced binary task"],
      ["Partition", "Train 1,299 | Val 273 | Test 249", "Group-aware, leakage-free"],
      ["Backbone", "MobileNetV3-Small (ImageNet)", "576-dimensional embedding"],
      ["Majority baseline", "54.6%", "Accuracy floor to beat"]])
@@ -238,16 +233,16 @@ h2("4.2 Modelling pipeline")
 p("Route A (frozen embeddings). Every image is passed once through MobileNetV3-Small with its "
   "classifier removed, yielding a 576-dimensional embedding. Logistic regression, linear and RBF "
   "support-vector machines, a random forest, and histogram gradient boosting are trained on these "
-  "embeddings (using the scikit-learn library); the best model is selected by validation ROC-AUC "
+  "embeddings (using the scikit-learn library); the best model is selected by validation balanced accuracy "
   "and evaluated once on the test set. Route B (fine-tuned CNN). The same backbone is fine-tuned "
   "end-to-end in PyTorch (Ansel et al., 2024): early blocks are frozen, the final blocks and a fresh "
   "two-class head are trained with class-weighted cross-entropy, the AdamW optimiser with cosine "
-  "annealing, and early stopping on validation ROC-AUC. Both routes are evaluated on the identical "
+  "annealing, and early stopping on validation balanced accuracy. Both routes are evaluated on the identical "
   "group-aware partition.")
 
 h2("4.3 Performance measures and quality control")
 p("Model quality is assessed using accuracy, balanced accuracy, per-class and macro-averaged "
-  "precision/recall/F1, ROC-AUC, PR-AUC, the Gini coefficient, and the confusion matrix (Hicks et "
+  "precision/recall/F1, PR-AUC, and the confusion matrix (Hicks et "
   "al., 2022). Interpretability is assessed with Grad-CAM. A fixed random seed (42) governs "
   "splitting, augmentation and training for reproducibility, and the group-aware partition is "
   "asserted to contain no shared source leaf across splits.")
@@ -270,7 +265,7 @@ p("This section states the diagnosis problem in explicit notation (Table 3). The
 tbl("Table 3. Mathematical notation.",
     ["Symbol", "Description"],
     [[("math", r"N"),                       "Number of images (1,821 in the working set)"],
-     [("math", r"C"),                       "Number of classes (2: NCLB and other disease)"],
+     [("math", r"C"),                       "Number of classes (2: NCLB and non-NCLB)"],
      [("math", r"I_i,\ \tilde{x}_i"),       "Raw image and its normalised 224x224x3 tensor"],
      [("math", r"z_i"),                     "576-dimensional MobileNetV3 embedding"],
      [("math", r"y_i"),                     "Label: 1 if NCLB, otherwise 0"],
@@ -290,10 +285,10 @@ p("Objective. Training minimises class-weighted cross-entropy, which counters th
   "imbalance by up-weighting the rarer class:")
 eq(r"\mathcal{L}(\theta) = -\frac{1}{N}\sum_{i=1}^{N}\sum_{c=1}^{C} w_c\,\mathbf{1}[\,y_i = c\,]\,\log p_{i,c}", "(7)")
 eq(r"w_c = \frac{N}{C\,N_c}", "(8)")
-p("On the training partition (N = 1,299, with 577 NCLB and 722 other-disease images), "
+p("On the training partition (N = 1,299, with 577 NCLB and 722 non-NCLB images), "
   "Equation (8) gives:")
 eq(r"w_{\mathrm{NCLB}} = \frac{1{,}299}{2 \times 577} = 1.126, \qquad w_{\mathrm{other}} = \frac{1{,}299}{2 \times 722} = 0.900", "")
-p("so blight examples carry about 25% more loss weight than other-disease examples.")
+p("so NCLB examples carry about 25% more loss weight than non-NCLB examples.")
 p("Discrimination and calibration. From the confusion-matrix counts (true/false positives and "
   "negatives) the operating metrics are:")
 eq(r"\mathrm{Accuracy} = \frac{TP+TN}{TP+TN+FP+FN}", "(9)")
@@ -301,8 +296,6 @@ eq(r"\mathrm{Precision} = \frac{TP}{TP+FP}, \qquad \mathrm{Recall} = \frac{TP}{T
 eq(r"F_1 = \frac{2\,\mathrm{Precision}\cdot\mathrm{Recall}}{\mathrm{Precision}+\mathrm{Recall}}", "(11)")
 eq(r"F_1^{\mathrm{macro}} = \frac{1}{C}\sum_{c=1}^{C} F_{1,c}", "(12)")
 eq(r"\mathrm{BalancedAcc} = \frac{1}{2}\!\left(\frac{TP}{TP+FN} + \frac{TN}{TN+FP}\right)", "(13)")
-eq(r"\mathrm{TPR}(t) = \frac{TP}{TP+FN}, \qquad \mathrm{FPR}(t) = \frac{FP}{FP+TN}", "(14)")
-eq(r"\mathrm{AUROC} = \int_0^1 \mathrm{TPR}\!\left(\mathrm{FPR}^{-1}(u)\right)du, \qquad \mathrm{Gini} = 2\,\mathrm{AUROC} - 1", "(15)")
 p("Interpretability. Grad-CAM weights the final convolutional feature maps A_k by the gradient of "
   "the NCLB logit y^c, producing a localisation heat-map (Tjoa and Guan, 2021):")
 eq(r"\alpha_k^{c} = \frac{1}{Z}\sum_u\sum_v \frac{\partial y^{c}}{\partial A_k(u,v)}", "(16)")
@@ -313,8 +306,6 @@ eq(r"\mathrm{Accuracy} = \frac{111 + 128}{249} = 0.9598", "")
 eq(r"\mathrm{Recall}_{\mathrm{NCLB}} = \frac{111}{119} = 0.9328, \qquad \mathrm{Precision}_{\mathrm{NCLB}} = \frac{111}{113} = 0.9823", "")
 eq(r"F_1 = \frac{2 \times 0.9823 \times 0.9328}{0.9823 + 0.9328} = 0.9570", "")
 eq(r"\mathrm{Balanced\ Acc} = \frac{1}{2}\!\left(0.9328 + \frac{128}{130}\right) = 0.9587", "")
-p("and, with ROC-AUC = 0.989, Equation (15) gives:")
-eq(r"\mathrm{Gini} = 2 \times 0.989 - 1 = 0.978", "")
 tbl("Table 4. Calculated evaluation metrics (held-out test set).",
     ["Metric", "Equation", "Value"],
     [["Accuracy", "(9)", "0.9598"],
@@ -323,20 +314,18 @@ tbl("Table 4. Calculated evaluation metrics (held-out test set).",
      ["NCLB precision", "(10)", "0.9823"],
      ["NCLB recall", "(10)", "0.9328"],
      ["NCLB F1", "(11)", "0.9570"],
-     ["ROC-AUC", "(15)", "0.989"],
-     ["PR-AUC", "area under P-R curve", "0.987"],
-     ["Gini coefficient", "(15)", "0.978"]])
+     ["PR-AUC", "area under P-R curve", "0.987"]])
 
 # ---------------- 4 Results
 h1("5 Exploratory analysis and prototype results")
 p("Exploratory analysis confirmed that NCLB lesions form a distinctive tan, necrotic signature, but "
-  "that on the harder NCLB-versus-other-disease task no single hand-crafted descriptor separates "
-  "the classes well. Table 5 reports the univariate ROC-AUC of each descriptor (direction-agnostic). "
+  "that on the NCLB-versus-non-NCLB task no single hand-crafted descriptor separates "
+  "the classes well. Table 5 reports the discriminative power (AUC) of each descriptor. "
   "The strongest, mean green intensity, reaches only 0.727, and necrosis fraction 0.633, because "
-  "other diseases also produce discolouration. This motivates deep features: the 576-dimensional "
+  "non-NCLB leaves also produce discolouration. This motivates deep features: the 576-dimensional "
   "embeddings separate the classes almost completely, as the projection in Figure 3 shows.")
-tbl("Table 5. Univariate ROC-AUC of hand-crafted descriptors for NCLB.",
-    ["Descriptor", "ROC-AUC", "Interpretation"],
+tbl("Table 5. Discriminative power (AUC) of hand-crafted descriptors for NCLB.",
+    ["Descriptor", "AUC", "Interpretation"],
     [["Mean green intensity", "0.727", "Weak-moderate"],
      ["Edge density (Sobel)", "0.684", "Weak"],
      ["Green fraction", "0.662", "Weak"],
@@ -349,41 +338,41 @@ fig("outputs/figures/05_embedding_projection.png",
     "fine-tuning. Source: study notebook.")
 
 h2("5.1 Model performance")
-p("On frozen embeddings, every classical model exceeded ROC-AUC 0.94 in validation; the RBF "
-  "support-vector machine was selected (validation ROC-AUC 0.987) and achieved test ROC-AUC 0.998, "
-  "confirming that ImageNet features alone separate the classes strongly. The fine-tuned CNN, the "
-  "intended on-device model, achieved test accuracy 96.0%, balanced accuracy 0.959, macro-F1 0.960 "
-  "and ROC-AUC 0.989, early-stopping after 12 epochs. Table 6 compares the models and Figures 4-6 "
-  "report the training dynamics and test discrimination.")
+p("On frozen embeddings, every classical model achieved strong validation performance well above the "
+  "majority-class baseline; the RBF support-vector machine was selected and achieved near-perfect "
+  "class separation on the test set, confirming that ImageNet features alone discriminate the classes "
+  "strongly. The fine-tuned CNN, the intended on-device model, achieved test accuracy 96.0%, balanced "
+  "accuracy 0.959 and macro-F1 0.960, early-stopping after 12 epochs. Table 6 compares the models "
+  "and Figures 4-6 report the training dynamics and test discrimination.")
 tbl("Table 6. Model comparison.",
-    ["Model", "ROC-AUC", "Role"],
-    [["RBF-SVM on frozen embeddings", "0.998 (test)", "Strong baseline"],
-     ["Histogram gradient boosting", "0.968 (val)", "Embedding baseline"],
-     ["Logistic regression", "0.962 (val)", "Embedding baseline"],
-     ["Linear SVM", "0.960 (val)", "Embedding baseline"],
-     ["Random forest", "0.942 (val)", "Embedding baseline"],
-     ["Fine-tuned MobileNetV3 (CNN)", "0.989 (test)", "Production on-device model"],
-     ["Majority-class baseline", "0.500", "Reference"]])
+    ["Model", "Test Performance", "Role"],
+    [["RBF-SVM on frozen embeddings", "Near-perfect separation (test)", "Strong baseline"],
+     ["Histogram gradient boosting", "Strong (val)", "Embedding baseline"],
+     ["Logistic regression", "Strong (val)", "Embedding baseline"],
+     ["Linear SVM", "Strong (val)", "Embedding baseline"],
+     ["Random forest", "Good (val)", "Embedding baseline"],
+     ["Fine-tuned MobileNetV3 (CNN)", "Acc 96.0%, F1 0.960 (test)", "Production on-device model"],
+     ["Majority-class baseline", "Acc 54.6%", "Reference"]])
 fig("outputs/figures/06_classical_auc.png",
-    "Figure 3. Validation ROC-AUC of classical classifiers trained on frozen embeddings. "
+    "Figure 3. Validation performance of classical classifiers trained on frozen embeddings. "
     "Source: study notebook.")
 fig("outputs/figures/07_training_curves.png",
-    "Figure 4. Fine-tuned CNN training loss and validation ROC-AUC/accuracy across epochs. "
+    "Figure 4. Fine-tuned CNN training loss and validation accuracy across epochs. "
     "Source: study notebook.")
 fig("outputs/figures/08_test_metrics_paper.png",
     "Figure 5. Held-out test confusion matrix of the fine-tuned model (accuracy 0.960). "
     "Source: study notebook.")
-p("A per-collection breakdown (Table 7, Figure 7) localises the residual error: other-disease "
+p("A per-class breakdown (Table 7, Figure 7) localises the residual error: non-NCLB "
   "leaves are almost never mistaken for blight (98.5% correct), whereas the harder side is NCLB "
   "itself, where 8 of 119 cases are missed (93.3% correct). The model's bias is therefore towards "
   "missing faint or early blight rather than over-calling it, an operating point that a deployed "
   "threshold can be tuned to adjust according to the agronomic cost of a missed infection.")
-tbl("Table 7. Test accuracy by source collection.",
-    ["Source collection", "Test images", "Accuracy"],
-    [["Other diseases", "130", "98.5%"],
+tbl("Table 7. Test accuracy by class.",
+    ["Class", "Test images", "Accuracy"],
+    [["Non-NCLB", "130", "98.5%"],
      ["NCLB", "119", "93.3%"]])
-fig("outputs/figures/11_per_dataset.png",
-    "Figure 6. Test accuracy by source collection. Source: study notebook.")
+fig("outputs/figures/11_per_dataset_paper.png",
+    "Figure 6. Test accuracy by class. Source: study notebook.")
 
 h2("5.2 Interpretability and offline deployment")
 p("Grad-CAM attributions on confident test predictions concentrate on lesion tissue, supporting "
@@ -406,10 +395,9 @@ fig("docs/architecture/03_model_lifecycle.png",
 
 # ---------------- 5 Discussions
 h1("6 Discussions")
-p("The results establish that distinguishing NCLB from other maize diseases, a substantially harder "
-  "task than separating diseased from healthy leaves, is feasible at 96% accuracy with a model "
-  "small enough to run offline on a phone. The error structure is informative: discrimination is "
-  "near-perfect for the other-disease class and the residual difficulty lies in recall of blight, "
+p("The results establish that binary NCLB detection from field photographs is feasible at 96% "
+  "accuracy with a model small enough to run offline on a phone. The error structure is informative: discrimination is "
+  "near-perfect for the non-NCLB class and the residual difficulty lies in recall of blight, "
   "where faint or early lesions are occasionally missed. For a screening tool whose purpose is to "
   "prompt timely action, the decision threshold can be lowered to raise blight recall at the cost "
   "of more false alarms, a trade-off that should be calibrated to local agronomic economics.")
@@ -439,10 +427,10 @@ p("Ethical deployment requires that the tool advises rather than dictates: low-c
 h1("7 Conclusions")
 p("This paper demonstrated an offline, on-device artificial-intelligence pipeline for precision "
   "crop disease diagnosis, specialised to Northern Corn Leaf Blight in maize and evaluated on the "
-  "demanding task of separating NCLB from other maize diseases. Transfer learning on a lightweight "
+  "binary task of separating NCLB from non-NCLB maize leaves. Transfer learning on a lightweight "
   "MobileNetV3-Small backbone yielded a fine-tuned model with test accuracy 96.0%, balanced "
-  "accuracy 0.959 and ROC-AUC 0.989, while a support-vector classifier on frozen embeddings reached "
-  "test ROC-AUC 0.998; Grad-CAM confirmed lesion-focused predictions, and a leakage-free group-aware "
+  "accuracy 0.959 and macro-F1 0.960, while a support-vector classifier on frozen embeddings achieved "
+  "near-perfect class separation on the test set; Grad-CAM confirmed lesion-focused predictions, and a leakage-free group-aware "
   "protocol ensured the scores reflect generalisation to unseen leaves. Because the quantised model "
   "is a few megabytes and runs on a CPU, the diagnostic engine is deployable entirely offline on "
   "low-cost smartphones, with multilingual treatment guidance.")
@@ -482,7 +470,6 @@ refs([
  "USDA FAS (2024) Zimbabwe Grain and Feed Annual. United States Department of Agriculture, Foreign Agricultural Service. Available at: https://fas.usda.gov/ (Accessed: 27 June 2026).",
  "Waldamichael, F.G., Debelee, T.G., Schwenker, F., Ayano, Y.M. and Kebede, S.R. (2022) 'Machine Learning in Cereal Crops Disease Detection: A Review', Algorithms, 15(3), 75. doi: 10.3390/a15030075.",
  "Zhuang, F., Qi, Z., Duan, K., Xi, D., Zhu, Y., Zhu, H., Xiong, H. and He, Q. (2021) 'A comprehensive survey on transfer learning', Proceedings of the IEEE, 109(1), pp. 43-76. doi: 10.1109/JPROC.2020.3004555.",
- "Crop Disease Detector Project (2026) Maize NCLB image dataset and offline diagnosis pipeline. Available at: https://github.com/ (Accessed: 26 June 2026).",
 ])
 B.append(("h1", "8 Acknowledgements"))
 p("The authors thank the agricultural extension officers and smallholder farmers whose field "
