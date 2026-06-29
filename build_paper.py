@@ -263,20 +263,20 @@ p("4.3.2 Reproducibility. Exploratory analysis and modelling are implemented in 
   "dependencies, with the data partition fixed by the published label file.")
 
 h2("4.4 Mathematical formulation and scoring equations")
-p("This section states the diagnosis problem in explicit notation. Let N denote the number of "
-  "images and C = 2 the number of classes. Each image i has raw form I_i and a binary label y_i = 1 "
-  "if the leaf shows NCLB and 0 otherwise. The deterministic preprocessing map produces a "
-  "normalised tensor; the backbone produces an embedding; a head produces class probabilities.")
+p("This section states the diagnosis problem in explicit notation (Table 3). There are N images "
+  "and C classes (here C = 2). Each image has a raw form and a binary label equal to 1 if the leaf "
+  "shows NCLB and 0 otherwise. A deterministic preprocessing map produces a normalised tensor; the "
+  "backbone produces an embedding; and a classification head produces class probabilities.")
 tbl("Table 3. Mathematical notation.",
     ["Symbol", "Description"],
-    [["N", "Number of images (working set N = 1,821)"],
-     ["C", "Number of classes (C = 2: NCLB, other disease)"],
-     ["I_i, x-tilde_i", "Raw image and its normalised 224x224x3 tensor"],
-     ["z_i", "576-dim MobileNetV3 embedding of image i"],
-     ["y_i", "Label: 1 if NCLB, else 0"],
-     ["p_i", "Predicted class-probability vector (softmax output)"],
-     ["w_c", "Inverse-frequency weight of class c"],
-     ["theta", "Trainable network parameters"]])
+    [[("math", r"N"),                       "Number of images (1,821 in the working set)"],
+     [("math", r"C"),                       "Number of classes (2: NCLB and other disease)"],
+     [("math", r"I_i,\ \tilde{x}_i"),       "Raw image and its normalised 224x224x3 tensor"],
+     [("math", r"z_i"),                     "576-dimensional MobileNetV3 embedding"],
+     [("math", r"y_i"),                     "Label: 1 if NCLB, otherwise 0"],
+     [("math", r"p_i"),                     "Predicted class-probability vector (softmax output)"],
+     [("math", r"w_c"),                     "Inverse-frequency weight of class c"],
+     [("math", r"\theta"),                  "Trainable network parameters"]])
 p("Preprocessing and representation. With image width W_i and height H_i:")
 eq(r"s_i = \min(W_i,\, H_i), \qquad \mathrm{crop}_i = \mathrm{CentreCrop}(I_i,\, s_i)", "(1)")
 eq(r"x_i = \mathrm{Resize}_{224}(\mathrm{crop}_i)", "(2)")
@@ -290,9 +290,10 @@ p("Objective. Training minimises class-weighted cross-entropy, which counters th
   "imbalance by up-weighting the rarer class:")
 eq(r"\mathcal{L}(\theta) = -\frac{1}{N}\sum_{i=1}^{N}\sum_{c=1}^{C} w_c\,\mathbf{1}[\,y_i = c\,]\,\log p_{i,c}", "(7)")
 eq(r"w_c = \frac{N}{C\,N_c}", "(8)")
-p("On the training partition (N = 1,299; NCLB N_1 = 577, other N_0 = 722) Equation (8) gives "
-  "w_NCLB = 1,299 / (2 x 577) = 1.126 and w_other = 1,299 / (2 x 722) = 0.900, so blight examples "
-  "carry about 25% more loss weight than other-disease examples.")
+p("On the training partition (N = 1,299, with 577 NCLB and 722 other-disease images), "
+  "Equation (8) gives:")
+eq(r"w_{\mathrm{NCLB}} = \frac{1{,}299}{2 \times 577} = 1.126, \qquad w_{\mathrm{other}} = \frac{1{,}299}{2 \times 722} = 0.900", "")
+p("so blight examples carry about 25% more loss weight than other-disease examples.")
 p("Discrimination and calibration. From the confusion-matrix counts (true/false positives and "
   "negatives) the operating metrics are:")
 eq(r"\mathrm{Accuracy} = \frac{TP+TN}{TP+TN+FP+FN}", "(9)")
@@ -306,11 +307,14 @@ p("Interpretability. Grad-CAM weights the final convolutional feature maps A_k b
   "the NCLB logit y^c, producing a localisation heat-map (Tjoa and Guan, 2021):")
 eq(r"\alpha_k^{c} = \frac{1}{Z}\sum_u\sum_v \frac{\partial y^{c}}{\partial A_k(u,v)}", "(16)")
 eq(r"L_{\mathrm{GradCAM}}^{c} = \mathrm{ReLU}\!\left(\sum_k \alpha_k^{c}\, A_k\right)", "(17)")
-p("Worked example. The fine-tuned model's test confusion matrix is TP = 111, FN = 8, FP = 2, "
-  "TN = 128 over 249 images. Substituting into Equations (9)-(13): Accuracy = (111 + 128) / 249 = "
-  "0.9598; NCLB Recall = 111 / 119 = 0.9328; NCLB Precision = 111 / 113 = 0.9823; F1 = 2 x 0.9823 x "
-  "0.9328 / (0.9823 + 0.9328) = 0.9570; Balanced Accuracy = (0.9328 + 128/130) / 2 = 0.9587. With "
-  "ROC-AUC = 0.989, Equation (15) gives Gini = 2 x 0.989 - 1 = 0.978.")
+p("Worked example. The fine-tuned model's test confusion matrix is TP = 111, FN = 8, FP = 2 and "
+  "TN = 128 over 249 test images. Substituting into Equations (9)-(13):")
+eq(r"\mathrm{Accuracy} = \frac{111 + 128}{249} = 0.9598", "")
+eq(r"\mathrm{Recall}_{\mathrm{NCLB}} = \frac{111}{119} = 0.9328, \qquad \mathrm{Precision}_{\mathrm{NCLB}} = \frac{111}{113} = 0.9823", "")
+eq(r"F_1 = \frac{2 \times 0.9823 \times 0.9328}{0.9823 + 0.9328} = 0.9570", "")
+eq(r"\mathrm{Balanced\ Acc} = \frac{1}{2}\!\left(0.9328 + \frac{128}{130}\right) = 0.9587", "")
+p("and, with ROC-AUC = 0.989, Equation (15) gives:")
+eq(r"\mathrm{Gini} = 2 \times 0.989 - 1 = 0.978", "")
 tbl("Table 4. Calculated evaluation metrics (held-out test set).",
     ["Metric", "Equation", "Value"],
     [["Accuracy", "(9)", "0.9598"],
@@ -575,7 +579,10 @@ def render_docx():
             for row in rows:
                 cells=t.add_row().cells
                 for j,val in enumerate(row):
-                    rr=cells[j].paragraphs[0].add_run(str(val)); rr.font.size=Pt(9.5)
+                    if isinstance(val, tuple) and val and val[0]=="mathimg":
+                        cells[j].paragraphs[0].add_run().add_picture(val[1], height=Inches(min(val[3], 0.26)))
+                    else:
+                        rr=cells[j].paragraphs[0].add_run(str(val)); rr.font.size=Pt(9.5)
             doc.add_paragraph().paragraph_format.space_after=Pt(2)
         elif k=="figure":
             path, cap = blk[1], blk[2]
@@ -662,8 +669,12 @@ def render_pdf():
             ncol=len(head)
             cellstyle=H(name="cell", parent=body, fontSize=8.8, leading=11, alignment=TA_LEFT, spaceAfter=0)
             headstyle=H(name="hcell", parent=cellstyle, fontName="Times-Bold")
+            def _cell(v):
+                if isinstance(v, tuple) and v and v[0]=="mathimg":
+                    return RLImage(v[1], width=v[2]*inch, height=v[3]*inch)
+                return Paragraph(esc(v), cellstyle)
             data=[[Paragraph(esc(h), headstyle) for h in head]]
-            for row in rows: data.append([Paragraph(esc(v), cellstyle) for v in row])
+            for row in rows: data.append([_cell(v) for v in row])
             # column widths: first col wider for 2-col definition tables
             if ncol==2: cw=[usable*0.32, usable*0.68]
             elif ncol==3: cw=[usable*0.34, usable*0.18, usable*0.48]
@@ -707,8 +718,28 @@ def renumber_figures():
             k+=1
             B[n]=("figure", blk[1], re.sub(r"^Figure\s+\d+\.", f"Figure {k}.", blk[2]))
 
+def render_math_cells():
+    """Render ('math', latex) table cells to typeset PNGs ('mathimg', path, w_in, h_in)."""
+    import matplotlib; matplotlib.use("Agg"); import matplotlib.pyplot as plt
+    eqdir="outputs/figures/eq"; os.makedirs(eqdir, exist_ok=True); idx=0
+    for n, blk in enumerate(B):
+        if blk[0]=="table":
+            cap, head, rows = blk[1], blk[2], blk[3]; newrows=[]
+            for row in rows:
+                nr=[]
+                for cell in row:
+                    if isinstance(cell, tuple) and cell and cell[0]=="math":
+                        idx+=1; path=f"{eqdir}/sym{idx:02d}.png"
+                        fig=plt.figure(figsize=(0.01,0.01)); fig.text(0,0,f"${cell[1]}$",fontsize=11,color="black")
+                        fig.savefig(path,dpi=300,transparent=True,bbox_inches="tight",pad_inches=0.02); plt.close(fig)
+                        w,h=PILImage.open(path).size; nr.append(("mathimg",path,w/300.0,h/300.0))
+                    else: nr.append(cell)
+                newrows.append(nr)
+            B[n]=("table",cap,head,newrows)
+
 if __name__=="__main__":
     renumber_figures()
+    render_math_cells()
     prerender_equations()
     render_docx()
     render_pdf()
