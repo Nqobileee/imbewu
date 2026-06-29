@@ -4,7 +4,7 @@ Deep-learning detection of **Northern Corn Leaf Blight (NCLB)** in maize leaf ph
 
 > **Headline result:** a fine-tuned MobileNetV3 correctly categorises **96.0%** of held-out leaves (239 / 249) as NCLB / non-NCLB, at **0.989 ROC-AUC**.
 
-Full write-up: **[SUMMARY.md](SUMMARY.md)** · Notebook: **[crop_disease_classification.ipynb](crop_disease_classification.ipynb)**
+Full write-up: **[SUMMARY.md](SUMMARY.md)** · Offline app design: **[ARCHITECTURE.md](ARCHITECTURE.md)** · Notebook: **[crop_disease_classification.ipynb](crop_disease_classification.ipynb)**
 
 ---
 
